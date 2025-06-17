@@ -13,7 +13,7 @@ DIFICULTADES = {
     'facil': 3,
     'intermedio': 2,
     'dificil': 1,
-    'dios': 1, # <--- ESTE ES EL CAMBIO CLAVE: Modo Dios ahora tiene 1 vida.
+    'dios': 1, # <--- CAMBIO CLAVE: Modo Dios ahora tiene 1 vida.
     'todos': 2
 }
 
