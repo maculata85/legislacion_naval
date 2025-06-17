@@ -26,8 +26,10 @@ def preparar_examen(dificultad):
     else:
         preguntas = [p for p in BASE_DE_PREGUNTAS if p['dificultad'] == dificultad]
 
+    # Si no hay suficientes preguntas, se usaran las que haya
+    num_a_seleccionar = min(NUM_PREGUNTAS_EXAMEN, len(preguntas))
     random.shuffle(preguntas)
-    return preguntas[:min(NUM_PREGUNTAS_EXAMEN, len(preguntas))]
+    return preguntas[:num_a_seleccionar]
 
 @app.route('/')
 def inicio():
@@ -75,26 +77,27 @@ def mostrar_pregunta():
         flash('La sesión del examen ha expirado o no se ha iniciado. Por favor, comienza de nuevo.', 'warning')
         return redirect(url_for('inicio'))
 
-    # --- VERIFICACIÓN CRÍTICA PARA EL MODO DIOS O FIN DE JUEGO ---
-    # Esta es la lógica que asegura que el Modo Dios inicia bien y termina al primer error
-    # o que cualquier otro modo termina al quedarse sin vidas.
+    # --- VERIFICACIÓN CRÍTICA PARA FIN DE JUEGO (SE EJECUTA EN CADA CARGA GET O DESPUÉS DE UN POST) ---
+    # Evalúa si el examen debe terminar EN ESTE MOMENTO
 
-    # Si ya se respondieron todas las preguntas, siempre ir a resultados
+    # 1. Si ya no hay más preguntas para mostrar (el índice actual es igual o mayor al total de preguntas)
     if indice_pregunta_actual >= len(preguntas):
         return redirect(url_for('resultado'))
 
-    # Si NO es Modo Dios Y las vidas han llegado a 0 o menos, ir a resultados
-    # (Esto cubre modos Fácil/Intermedio/Difícil que se quedan sin vidas)
-    if dificultad_actual != 'dios' and vidas <= 0:
-        return redirect(url_for('resultado'))
-
-    # Si ES Modo Dios Y las vidas son negativas (indicando un fallo), ir a resultados
-    # (Modo Dios inicia con 0 vidas, así que vidas < 0 significa que ya se equivocó)
-    if dificultad_actual == 'dios' and vidas < 0:
-        return redirect(url_for('resultado'))
-
-    # NOTA: Si es Modo Dios y vidas es 0 Y indice_pregunta_actual es 0,
-    # la lógica superior permitirá que la pregunta se muestre, que es el comportamiento deseado.
+    # 2. Si las vidas se han agotado (o son negativas)
+    #    Excepción: Si es Modo Dios y estamos en la primera pregunta (indice 0), NO se considera fin de juego todavía.
+    #    Solo si las vidas son negativas (Modo Dios se equivocó) O si no es Modo Dios y sus vidas llegaron a cero.
+    if vidas <= 0: # Si las vidas son 0 o menos
+        # Si ES Modo Dios y NO es la primera pregunta (ya avanzó o se equivocó)
+        if dificultad_actual == 'dios' and indice_pregunta_actual > 0:
+            return redirect(url_for('resultado'))
+        # Si ES Modo Dios y sus vidas son negativas (se equivocó en cualquier pregunta)
+        elif dificultad_actual == 'dios' and vidas < 0:
+            return redirect(url_for('resultado'))
+        # Si NO ES Modo Dios y sus vidas llegaron a cero (fin de juego normal)
+        elif dificultad_actual != 'dios':
+            return redirect(url_for('resultado'))
+        # En cualquier otro caso (Modo Dios, 0 vidas, primera pregunta), NO REDIRIGE, permite mostrar la pregunta.
 
 
     # --- Lógica de procesamiento de respuesta (si la solicitud es POST) ---
@@ -124,12 +127,12 @@ def mostrar_pregunta():
         })
         session['respuestas'] = respuestas
 
-        # --- Lógica de avance a la siguiente pregunta o fin del examen (después de POST) ---
-        siguiente_indice = indice_pregunta_actual + 1
-        session['indice_pregunta_actual'] = siguiente_indice # Actualizar el índice en la sesión
+        # --- Lógica de avance a la siguiente pregunta ---
+        session['indice_pregunta_actual'] = indice_pregunta_actual + 1
 
-        # Redirige siempre a mostrar_pregunta para que la lógica GET superior
-        # maneje si el examen ha terminado o si debe mostrar la siguiente pregunta.
+        # Después de procesar una respuesta (POST), siempre redirigimos a la misma ruta GET
+        # para que la lógica de verificación de fin de juego (al inicio de la función GET)
+        # se evalúe para la SIGUIENTE pregunta o para determinar si el examen terminó.
         return redirect(url_for('mostrar_pregunta'))
 
     # --- Lógica para mostrar la pregunta actual (si la solicitud es GET y el examen NO ha terminado) ---
@@ -169,19 +172,19 @@ def resultado():
 
     # --- Lógica de victoria/derrota específica para Modo Dios ---
     mensaje_dios = None
+    # Si la dificultad era Dios:
     if dificultad_final == 'dios':
-        # Para "ganar" Modo Dios, todas las respondidas deben ser correctas Y debe haber respondido el NUM_PREGUNTAS_EXAMEN total.
-        # Además, sus vidas no deben ser negativas (lo que indicaría un fallo).
+        # Gana si: respondió TODAS las preguntas Y todas fueron correctas Y las vidas NO son negativas (nunca cometió un error).
         if correctas == NUM_PREGUNTAS_EXAMEN and total == NUM_PREGUNTAS_EXAMEN and vidas >= 0:
             mensaje_dios = "¡HAS CONQUISTADO EL MODO DIOS! Eres imparable. 🎉"
-            temas = [] # No hay temas a repasar si se ganó el Modo Dios
+            temas = [] # Si se ganó Modo Dios, no hay temas a repasar
         else:
-            # Falló alguna, o no completó las 15 perfectas (ej. terminó por error antes de las 15)
+            # Pierde si: no respondió todas correctamente O si las vidas se volvieron negativas.
             mensaje_dios = "El Modo Dios requiere perfección. Sigue estudiando. 😢"
 
     return render_template('resultado.html', correctas=correctas, total=total,
                            vidas=vidas, porcentaje=porcentaje, temas=temas,
-                           mensaje_dios=mensaje_dios) # Pasamos el mensaje especial
+                           mensaje_dios=mensaje_dios)
 
 if __name__ == '__main__':
     app.run(debug=True)

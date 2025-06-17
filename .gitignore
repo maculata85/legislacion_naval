@@ -1,0 +1,31 @@
+# Archivos y directorios de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.egg
+*.egg-info/
+dist/        # <--- Ignorar carpeta de PyInstaller
+build/       # <--- Ignorar carpeta de PyInstaller
+*.exe        # <--- Ignorar archivos .exe
+*.zip
+*.tar.gz
+
+# Archivos generados por PyInstaller (si no están en build/ o dist/)
+*.spec
+
+# Archivos de documentos grandes (subir solo si son estrictamente necesarios para la app en Render)
+# Si la app web de Render NO necesita leer estos PDFs/DOCX, NO los subas.
+# Si base_de_preguntas.py ya contiene todo, estos no son necesarios para Render.
+# 1. COMP_LEG. NAV._CAPS Y OFLS_PFAM-2025.pdf
+# DAM_1.3.4.6_SEGURIDAD_FISICA_DE_LAS_UNIDADES_Y_ESTABLECIMIENTOS_DE_LA_SEMAR LIBRE.pdf
+# base de preguntas y respuestas legislacion y seguridad fisica.docx
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
