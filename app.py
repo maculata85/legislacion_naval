@@ -165,7 +165,7 @@ def resultado():
     # --- Lógica de victoria/derrota específica para Modo Dios (con 1 vida) ---
     mensaje_dios = None
     if dificultad_final == 'dios':
-        # Para "ganar" Modo Dios (con 1 vida): respondedió TODAS las preguntas y todas fueron correctas
+        # Para "ganar" Modo Dios (con 1 vida): respondió TODAS las preguntas y todas fueron correctas
         if correctas == NUM_PREGUNTAS_EXAMEN and total == NUM_PREGUNTAS_EXAMEN:
             mensaje_dios = "¡HAS CONQUISTADO EL MODO DIOS! Eres imparable. 🎉"
             temas = [] # No hay temas a repasar si se ganó Modo Dios
