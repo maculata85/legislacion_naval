@@ -70,9 +70,32 @@ def mostrar_pregunta():
     indice_pregunta_actual = session.get('indice_pregunta_actual', 0)
 
     # --- Validación inicial de sesión para robustez ---
+    # Si los datos esenciales de la sesión no están, redirigir al inicio.
     if preguntas is None or vidas is None or dificultad_actual is None:
         flash('La sesión del examen ha expirado o no se ha iniciado. Por favor, comienza de nuevo.', 'warning')
         return redirect(url_for('inicio'))
+
+    # --- VERIFICACIÓN CRÍTICA PARA EL MODO DIOS O FIN DE JUEGO ---
+    # Esta es la lógica que asegura que el Modo Dios inicia bien y termina al primer error
+    # o que cualquier otro modo termina al quedarse sin vidas.
+
+    # Si ya se respondieron todas las preguntas, siempre ir a resultados
+    if indice_pregunta_actual >= len(preguntas):
+        return redirect(url_for('resultado'))
+
+    # Si NO es Modo Dios Y las vidas han llegado a 0 o menos, ir a resultados
+    # (Esto cubre modos Fácil/Intermedio/Difícil que se quedan sin vidas)
+    if dificultad_actual != 'dios' and vidas <= 0:
+        return redirect(url_for('resultado'))
+
+    # Si ES Modo Dios Y las vidas son negativas (indicando un fallo), ir a resultados
+    # (Modo Dios inicia con 0 vidas, así que vidas < 0 significa que ya se equivocó)
+    if dificultad_actual == 'dios' and vidas < 0:
+        return redirect(url_for('resultado'))
+
+    # NOTA: Si es Modo Dios y vidas es 0 Y indice_pregunta_actual es 0,
+    # la lógica superior permitirá que la pregunta se muestre, que es el comportamiento deseado.
+
 
     # --- Lógica de procesamiento de respuesta (si la solicitud es POST) ---
     if request.method == 'POST':
@@ -105,39 +128,11 @@ def mostrar_pregunta():
         siguiente_indice = indice_pregunta_actual + 1
         session['indice_pregunta_actual'] = siguiente_indice # Actualizar el índice en la sesión
 
-        # VERIFICACIÓN DE FIN DE EXAMEN DESPUÉS DE PROCESAR LA RESPUESTA
-        # Si las vidas son negativas (solo posible en Modo Dios después de un fallo)
-        # O si ya no hay más preguntas que mostrar.
-        if vidas < 0 or siguiente_indice >= len(preguntas):
-            return redirect(url_for('resultado'))
-        else:
-            return redirect(url_for('mostrar_pregunta'))
+        # Redirige siempre a mostrar_pregunta para que la lógica GET superior
+        # maneje si el examen ha terminado o si debe mostrar la siguiente pregunta.
+        return redirect(url_for('mostrar_pregunta'))
 
-    # --- Lógica para mostrar la pregunta actual (si la solicitud es GET) ---
-    #
-    # Redirigir a 'resultado' SI:
-    # 1. Ya no hay más preguntas que mostrar (el índice excede el total de preguntas).
-    # 2. Las vidas son 0 o menos Y NO ES EL MODO DIOS en la PRIMERA PREGUNTA.
-    #    Es decir, si tienes 0 o menos vidas Y no estás en Modo Dios, O si estás en Modo Dios pero ya avanzaste
-    #    más allá de la primera pregunta (lo que significa que ya fallaste).
-
-    if indice_pregunta_actual >= len(preguntas):
-        return redirect(url_for('resultado'))
-    
-    # Esta es la parte crítica para el Modo Dios y otros modos al inicio
-    # Si vidas <= 0:
-    #   - Si es Modo Dios Y estamos en la primera pregunta (indice_pregunta_actual == 0), NO redirigimos.
-    #   - En cualquier otro caso (vidas <= 0 Y no es Modo Dios O es Modo Dios pero ya no es la primera pregunta), redirigimos.
-    if vidas <= 0:
-        if dificultad_actual == 'dios' and indice_pregunta_actual == 0:
-            # Es Modo Dios, 0 vidas, primera pregunta. Permite mostrarla. NO REDIRIGIR.
-            pass
-        else:
-            # Vidas agotadas en otro modo O en Modo Dios pero ya después de la primera pregunta (indicando un fallo previo).
-            return redirect(url_for('resultado'))
-
-
-    # Si llegamos aquí, significa que la sesión es válida y debemos mostrar una pregunta.
+    # --- Lógica para mostrar la pregunta actual (si la solicitud es GET y el examen NO ha terminado) ---
     pregunta_a_mostrar = preguntas[indice_pregunta_actual]
     opciones = pregunta_a_mostrar['opciones'][:]
     random.shuffle(opciones)
@@ -163,7 +158,7 @@ def resultado():
     correctas = sum(1 for r in respuestas if r['acertada'])
     temas = sorted(set(r['tema'] for r in respuestas if not r['acertada']))
     porcentaje = (correctas / total) * 100 if total > 0 else 0
-    dificultad_final = session.get('dificultad') # Recuperamos la dificultad para la evaluación final
+    dificultad_final = session.get('dificultad') 
 
     # Limpiar la sesión al finalizar el examen para que no arrastre datos viejos
     session.pop('preguntas', None)
@@ -173,18 +168,16 @@ def resultado():
     session.pop('indice_pregunta_actual', None)
 
     # --- Lógica de victoria/derrota específica para Modo Dios ---
+    mensaje_dios = None
     if dificultad_final == 'dios':
+        # Para "ganar" Modo Dios, todas las respondidas deben ser correctas Y debe haber respondido el NUM_PREGUNTAS_EXAMEN total.
+        # Además, sus vidas no deben ser negativas (lo que indicaría un fallo).
         if correctas == NUM_PREGUNTAS_EXAMEN and total == NUM_PREGUNTAS_EXAMEN and vidas >= 0:
-            # Si es Modo Dios, todas las 15 preguntas son correctas (100% de acierto) y no se agotaron las vidas.
-            # (Vidas >=0 es importante si por alguna razon el Modo Dios queda en 0 vidas y no en -1 si falla).
             mensaje_dios = "¡HAS CONQUISTADO EL MODO DIOS! Eres imparable. 🎉"
             temas = [] # No hay temas a repasar si se ganó el Modo Dios
         else:
-            # Falló alguna o no completó las 15 perfectas
+            # Falló alguna, o no completó las 15 perfectas (ej. terminó por error antes de las 15)
             mensaje_dios = "El Modo Dios requiere perfección. Sigue estudiando. 😢"
-            # Los temas a repasar ya se calculan con los fallos, así que no se alteran aquí
-    else:
-        mensaje_dios = None # No hay mensaje especial para otros modos
 
     return render_template('resultado.html', correctas=correctas, total=total,
                            vidas=vidas, porcentaje=porcentaje, temas=temas,
