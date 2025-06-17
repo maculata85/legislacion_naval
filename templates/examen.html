@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pregunta {{ num+1 }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    {# Sección para Mensajes Flash (Paso 4) #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+        {% for category, message in messages %}
+          <li class="{{ category }}">{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <div class="quiz-header">
+      <h2>Pregunta {{ num+1 }} de {{ total }}</h2>
+      <p class="vidas-info">Vidas restantes:
+        {% if dificultad_actual != 'dios' %}
+          {% for _ in range(vidas) %}
+            <span class="vida-activa">💚</span>
+          {% endfor %}
+          {% for _ in range(DIFICULTADES[dificultad_actual] - vidas) %}
+            <span class="vida-perdida">💔</span> {# Corazones perdidos #}
+          {% endfor %}
+        {% else %} {# Modo Dios #}
+          <span class="modo-dios-icono">☠️</span> (MODO DIOS)
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="question-card">
+      <p class="question-theme"><strong>Tema:</strong> {{ tema }}</p>
+      <p class="question-text">{{ pregunta }}</p>
+
+      <form method="POST" action="{{ url_for('mostrar_pregunta') }}">
+        {% for opcion in opciones %}
+          <label class="option-label">
+            <input type="radio" name="opcion" value="{{ opcion }}" required>
+            {{ opcion }}
+          </label><br>
+        {% endfor %}
+        <br>
+        <button type="submit">Responder</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

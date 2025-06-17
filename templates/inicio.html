@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuestionario de Legislación Naval - Inicio</title> {# <--- TÍTULO DE LA PESTAÑA #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h2>Cuestionario de Legislación Naval</h2> {# <--- TÍTULO VISIBLE EN LA PÁGINA #}
+    <form method="POST" action="{{ url_for('examen') }}">
+      <label for="dificultad-select">Elige un nivel de dificultad:</label><br>
+      <select id="dificultad-select" name="dificultad">
+        <option value="facil">1. Fácil (3 vidas 💚💚💚)</option>
+        <option value="intermedio">2. Intermedio (2 vidas 💛💛)</option>
+        <option value="dificil">3. Difícil (1 vida ❤️)</option>
+        <option value="dios">4. Dios (0 vidas ☠️ - Sin margen de error)</option>
+        <option value="todos">5. Todos (2 vidas 💛💛)</option>
+      </select><br><br>
+      <button type="submit">Iniciar Examen</button>
+    </form>
+  </div>
+</body>
+</html>
